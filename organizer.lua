@@ -24,36 +24,65 @@ local extensions = {
     }
 }
 
--- get downloads dir path in windows or linux OS
-if type(E.HOMEPATH) == 'string' then
-    downloadsDir = 'C:' .. E.HOMEPATH .. '/Downloads'
-else
-    downloadsDir = E.HOME .. '/Downloads'
+-- command line arguments
+local opts = parseopts{
+    named = {
+        dir = { type = 'param' },
+        here = { type = 'switch' },
+        help = { type = 'switch' }
+    }
+}
+
+-- print help information
+if opts.help then
+    print([[
+
+    Organizes files by group type. Defaults to "Downloads" directory.
+
+    Options:
+
+    --dir [DIRECTORY_PATH] : organize files in given directory
+    -- here : organize current directory
+    -- help : show this help message
+    ]])
+    return
 end
 
--- change directory
-chdir(downloadsDir)
+-- select directory from cli args
+if opts.here then
+    selectedDir = current()
+elseif opts.dir then
+    selectedDir = opts.dir
+else
+    selectedDir = E.HOMEPATH and 'C:' .. E.HOMEPATH .. '/Downloads' or E.HOME .. '/Downloads'
+end
 
--- create the needed directories
-function createDirs()
+-- only organize if directory exists
+if exists(selectedDir) then
+    print('---> organizing files in: ' ..selectedDir)
+
+    -- change directory
+    chdir(selectedDir)
+
+    -- create the needed directories
     for keys in pairs(extensions) do
         mkdir(keys)
     end
-end
 
-createDirs()
+    -- move files into their respective folders
+    function moveFiles(fileGroup, fileTable)
+        for _, fileExtension in pairs(fileTable) do
+            local matchedFiles = glob('*' ..fileExtension)
 
--- move files into their respective folders
-function moveFiles(fileGroup, fileTable)
-    for _, fileExtension in pairs(fileTable) do
-        local matchedFiles = glob('*' ..fileExtension)
-
-        for _, matchedFile in pairs(matchedFiles) do
-            move(matchedFile, current() .. '/' .. fileGroup .. '/' .. matchedFile)
+            for _, matchedFile in pairs(matchedFiles) do
+                move(matchedFile, current() .. '/' .. fileGroup .. '/' .. matchedFile)
+            end
         end
     end
-end
 
-for key in pairs(extensions) do
-    moveFiles(key, extensions[key])
+    for key in pairs(extensions) do
+        moveFiles(key, extensions[key])
+    end
+else
+    print('---> directory doesn\'t exist')
 end
